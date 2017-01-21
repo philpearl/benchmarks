@@ -28,14 +28,13 @@ func newSharedBuffer(size int) *sharedBuffer {
 
 func (s *sharedBuffer) close() {
 	s.Lock()
-	defer s.Unlock()
 	s.closed = true
 	s.rcond.Broadcast()
+	s.Unlock()
 }
 
 func (s *sharedBuffer) put(val byte) {
 	s.Lock()
-	defer s.Unlock()
 
 	// If the buffer is full we need to wait for space to appear
 	for s.count == s.size {
@@ -56,15 +55,16 @@ func (s *sharedBuffer) put(val byte) {
 		s.rcond.Signal()
 	}
 	s.count++
+	s.Unlock()
 }
 
 func (s *sharedBuffer) get() (byte, bool) {
 	s.Lock()
-	defer s.Unlock()
 
 	// If the buffer is empty then we need to wait for some data
 	for s.count == 0 {
 		if s.closed {
+			s.Unlock()
 			return 0, true
 		}
 		s.rcond.Wait()
@@ -85,5 +85,6 @@ func (s *sharedBuffer) get() (byte, bool) {
 	}
 	s.count--
 
+	s.Unlock()
 	return val, false
 }
