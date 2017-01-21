@@ -1,6 +1,7 @@
 package benchmarks
 
 import (
+	"runtime"
 	"sync"
 	"testing"
 )
@@ -47,6 +48,34 @@ func BenchmarkSharedBuffer(b *testing.B) {
 			_, closed = sb.get()
 		}
 	}()
+
+	b.SetBytes(1)
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		sb.put(byte(i))
+	}
+	sb.close()
+	wg.Wait()
+}
+
+func BenchmarkSharedBufferMulti(b *testing.B) {
+	sb := newSharedBuffer(4096)
+	wg := sync.WaitGroup{}
+
+	for i := 0; i < runtime.NumCPU(); i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			var closed bool
+
+			for !closed {
+				_, closed = sb.get()
+			}
+		}()
+	}
 
 	b.SetBytes(1)
 	b.ReportAllocs()

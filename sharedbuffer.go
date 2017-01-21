@@ -6,7 +6,8 @@ import (
 
 type sharedBuffer struct {
 	sync.Mutex
-	cond   *sync.Cond
+	rcond  *sync.Cond
+	wcond  *sync.Cond
 	closed bool
 	read   int
 	write  int
@@ -20,7 +21,8 @@ func newSharedBuffer(size int) *sharedBuffer {
 		buffer: make([]byte, size),
 		size:   size,
 	}
-	s.cond = sync.NewCond(s)
+	s.rcond = sync.NewCond(s)
+	s.wcond = sync.NewCond(s)
 	return s
 }
 
@@ -28,6 +30,7 @@ func (s *sharedBuffer) close() {
 	s.Lock()
 	defer s.Unlock()
 	s.closed = true
+	s.rcond.Broadcast()
 }
 
 func (s *sharedBuffer) put(val byte) {
@@ -36,7 +39,7 @@ func (s *sharedBuffer) put(val byte) {
 
 	// If the buffer is full we need to wait for space to appear
 	for s.count == s.size {
-		s.cond.Wait()
+		s.wcond.Wait()
 	}
 
 	// s.write tells us the next space that's free to write to. If we reach the
@@ -48,9 +51,9 @@ func (s *sharedBuffer) put(val byte) {
 	}
 
 	// If the buffer was empty, then signal to anyone that's waiting as there's
-	// now space
+	// now data to read
 	if s.count == 0 {
-		s.cond.Signal()
+		s.rcond.Signal()
 	}
 	s.count++
 }
@@ -64,7 +67,7 @@ func (s *sharedBuffer) get() (byte, bool) {
 		if s.closed {
 			return 0, true
 		}
-		s.cond.Wait()
+		s.rcond.Wait()
 	}
 
 	// s.read tells us where the next byte to read is. If we reach the end of
@@ -78,7 +81,7 @@ func (s *sharedBuffer) get() (byte, bool) {
 	// If the buffer was full, then signal to anyone waiting to write as there is
 	// now space
 	if s.count == s.size {
-		s.cond.Signal()
+		s.wcond.Signal()
 	}
 	s.count--
 
