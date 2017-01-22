@@ -87,3 +87,39 @@ func BenchmarkSharedBufferMulti(b *testing.B) {
 	sb.close()
 	wg.Wait()
 }
+
+func BenchmarkSharedBufferMultiSendRecv(b *testing.B) {
+	sb := newSharedBuffer(4096)
+	wg := sync.WaitGroup{}
+
+	numCPU := runtime.NumCPU()
+	wg.Add(numCPU)
+	for i := 0; i < numCPU; i++ {
+		go func() {
+			var closed bool
+
+			for !closed {
+				_, closed = sb.get()
+			}
+			wg.Done()
+		}()
+	}
+
+	b.SetBytes(1)
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	sendWG := sync.WaitGroup{}
+	sendWG.Add(numCPU)
+	for j := 0; j < numCPU; j++ {
+		go func() {
+			for i := 0; i < b.N; i += numCPU {
+				sb.put(byte(i))
+			}
+			sendWG.Done()
+		}()
+	}
+	sendWG.Wait()
+	sb.close()
+	wg.Wait()
+}

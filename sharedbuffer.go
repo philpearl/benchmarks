@@ -52,7 +52,7 @@ func (s *sharedBuffer) put(val byte) {
 	// If the buffer was empty, then signal to anyone that's waiting as there's
 	// now data to read
 	if s.count == 0 {
-		s.rcond.Signal()
+		s.rcond.Broadcast()
 	}
 	s.count++
 	s.Unlock()
@@ -81,7 +81,7 @@ func (s *sharedBuffer) get() (byte, bool) {
 	// If the buffer was full, then signal to anyone waiting to write as there is
 	// now space
 	if s.count == s.size {
-		s.wcond.Signal()
+		s.wcond.Broadcast()
 	}
 	s.count--
 
