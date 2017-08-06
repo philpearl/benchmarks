@@ -31,6 +31,23 @@ func BenchmarkLevenshtein_philpearl(b *testing.B) {
 	}
 }
 
+func BenchmarkLevenshtein_long(b *testing.B) {
+	s1 := "frederick"
+	s2 := "fredelstick"
+	total := 0
+
+	b.ReportAllocs()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		total += levDist(s1, s2)
+	}
+
+	if total == 0 {
+		b.Logf("total is %d", total)
+	}
+}
+
 func BenchmarkLevenshtein_dgryski(b *testing.B) {
 	s1 := "frederick"
 	s2 := "fredelstick"
